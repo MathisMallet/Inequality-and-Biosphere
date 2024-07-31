@@ -1,0 +1,1034 @@
+---
+title: "France_analysis"
+author: "Mathis Mallet"
+date: "2024-05-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Import the libraries
+```{r}
+source("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Code\\functions_analysis_chile.R")
+library(ggplot2)
+library(viridis)
+library(grid)
+library(gridExtra)
+library(beepr)
+library(dplyr)#to manipulate datasets
+library(cowplot) #for better combined graphs
+library(FactoMineR)
+library(tidyr)
+library(purrr)
+library(tibble)
+library(RColorBrewer)
+library(patchwork)
+library(plotly)
+library(reshape2) #to melt() df
+#Factoshiny can be fun ^^
+
+library(NbClust)
+library(sf)
+
+library(svglite)
+library(latex2exp)
+
+
+library(ggplotify)
+library(ggpubr)
+```
+
+#Trajctories
+## Load the dataset
+```{r}
+dataset_REG <- read.csv(file = "C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Code\\trilemma_16_18_21_France_REG.csv", check.names = FALSE)
+dataset_DEP <- read.csv(file = "C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Code\\trilemma_16_18_21_France_DEP.csv", check.names = FALSE)
+dataset_COM <- read.csv(file = "C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Code\\trilemma_16_18_21_France_COM.csv", check.names = FALSE)
+dataset_EPCI <- read.csv(file = "C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Code\\trilemma_16_18_21_France_EPCI.csv", check.names = FALSE)
+```
+##Constants
+```{r}
+common_years = c("2016","2018","2021")
+```
+## Reduce data
+```{r}
+# names <- colnames(dataset_REG)
+# kept_columns <- filter_strings_with_substrings(names, c("Gini", "Total","Median", "Region", "Region_number"))
+# dataset_REG <- dataset_REG[, kept_columns]
+# dataset_DEP <- dataset_DEP[, kept_columns]
+# dataset_COM <- dataset_COM[, kept_columns]
+```
+##Represent the trajectories
+```{r}
+graph_from_datasets <- function(datasets, colbar = FALSE ){
+  nb <- length(datasets)
+  names <- colnames(datasets[[1]])
+  if (colbar) {
+    legend_obj <- theme(legend.title = element_text(size = 12),  # Adjust legend title size
+          legend.text = element_text(size = 11),   # Adjust legend label size
+          axis.title.x = element_text(size = 12),# Set size of x-axis labels
+          axis.title.y = element_text(size = 12), # Set size of y-axis labels
+          axis.text.x = element_text(size = 11),# Set size of x-axis labels
+          axis.text.y = element_text(size = 11))# Set size of y-axis labels
+  } else {
+    legend_obj <- theme(legend.position = "none" ,
+          axis.title.x = element_text(size = 10),# Set size of x-axis labels
+          axis.title.y = element_text(size = 10), # Set size of y-axis labels
+          axis.text.x = element_text(size = 11),# Set size of x-axis labels
+          axis.text.y = element_text(size = 11))# Set size of y-axis labels
+  }
+
+  graph <- ggplot() +
+    labs(
+      x = names[1],
+      y = names[2],
+      # x = element_blank(),
+      # y = element_blank(),
+      color = names[3]) +
+    # theme_minimal() +
+    legend_obj +
+    scale_color_viridis_c()
+  #scale_color_gradient(low = "blue", high = "red")
+  for (i in 1:nb) {
+    graph <- graph +
+      geom_point(data = datasets[[i]], aes(x = .data[[names[1]]], y = .data[[names[2]]], color = .data[[names[3]]])) +
+      geom_path(data = datasets[[i]], aes(x = .data[[names[1]]], y = .data[[names[2]]], color = .data[[names[3]]]))
+  }
+  return(graph)
+}
+```
+
+```{r}
+test <- data_to_plot(dataset = dataset_REG, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years)
+graph_from_datasets(test)
+test <- data_to_plot(dataset = dataset_DEP, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years)
+graph_from_datasets(test)
+```
+```{r}
+graph_from_datasets <- function(datasets, colbar = FALSE ){
+  nb <- length(datasets)
+  names <- colnames(datasets[[1]])
+  if (colbar) {
+    legend_obj <- theme(legend.title = element_text(size = 12),  # Adjust legend title size
+          legend.text = element_text(size = 11),   # Adjust legend label size
+          axis.title.x = element_text(size = 10),# Set size of x-axis labels
+          axis.title.y = element_text(size = 10), # Set size of y-axis labels
+          axis.text.x = element_text(size = 11),# Set size of x-axis labels
+          axis.text.y = element_text(size = 11))# Set size of y-axis labels
+  } else {
+    legend_obj <- theme(legend.position = "none" ,
+          axis.title.x = element_text(size = 10),# Set size of x-axis labels
+          axis.title.y = element_text(size = 10), # Set size of y-axis labels
+          axis.text.x = element_text(size = 11),# Set size of x-axis labels
+          axis.text.y = element_text(size = 11))# Set size of y-axis labels
+  }
+
+  graph <- ggplot() +
+    labs(
+      x = names[1],
+      y = names[2],
+      # x = element_blank(),
+      # y = element_blank(),
+      color = names[3]) +
+    # theme_minimal() +
+    legend_obj +
+    scale_color_viridis_c()
+  #scale_color_gradient(low = "blue", high = "red")
+  for (i in 1:nb) {
+    graph <- graph +
+      geom_point(data = datasets[[i]], aes(x = .data[[names[1]]], y = .data[[names[2]]], color = .data[[names[3]]])) +
+      geom_path(data = datasets[[i]], aes(x = .data[[names[1]]], y = .data[[names[2]]], color = .data[[names[3]]]))
+  }
+  return(graph)
+}
+test <- data_to_plot(dataset = dataset_REG, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years)
+temp <- graph_from_datasets(test, colbar = TRUE)
+leg <- get_legend(temp)
+colorbar3 <- as_ggplot(leg)
+colorbar3
+
+```
+
+```{r}
+test <- data_to_plot(dataset = dataset_EPCI, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years)
+
+com_graph_from_datasets <- function(datasets, colbar = FALSE){
+  combined_data <- do.call(rbind, datasets)
+  names <- colnames(combined_data)
+  if (colbar) {
+    legend_obj <- theme(legend.title = element_text(size = 12),  # Adjust legend title size
+          legend.text = element_text(size = 12),   # Adjust legend label size
+          axis.title.x = element_text(size = 10),# Set size of x-axis labels
+          axis.title.y = element_text(size = 10), # Set size of y-axis labels
+          axis.text.x = element_text(size = 11),# Set size of x-axis labels
+          axis.text.y = element_text(size = 11))# Set size of y-axis labels
+  } else {
+    legend_obj <- theme(legend.position = "none" ,
+          axis.title.x = element_text(size = 10),# Set size of x-axis labels
+          axis.title.y = element_text(size = 10), # Set size of y-axis labels
+          axis.text.x = element_text(size = 11),# Set size of x-axis labels
+          axis.text.y = element_text(size = 11))# Set size of y-axis labels
+  }
+  graph <- ggplot() +
+    labs(
+      x = names[1],
+      y = names[2],
+      # x = element_blank(),
+      # y = element_blank(),
+
+      color = names[3]) +
+    # theme_minimal() +
+    theme(strip.background = element_rect(fill="orange"))+
+    legend_obj +
+    scale_color_viridis_c()
+  #scale_color_gradient(low = "blue", high = "red")
+  graph <- graph +
+    geom_point(data = combined_data, aes(x = .data[[names[1]]], y = .data[[names[2]]], color = .data[[names[3]]]), size = 1, alpha = 0.5)+
+    scale_x_continuous(trans='log10')
+  return(graph)
+
+}
+com_graph_from_datasets(test, colbar = TRUE)
+```
+<!-- #For saving figures -->
+<!-- ```{r} -->
+
+<!-- temp <- data_to_plot(dataset = dataset_REG, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f1 <- graph_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_REG, type1 = "GHG", subtype1 = "Total", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f2 <-graph_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_REG, type1 = "I", subtype1 = "Gini", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f3 <- graph_from_datasets(temp) -->
+
+<!-- temp <- data_to_plot(dataset = dataset_DEP, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f4 <-graph_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_DEP, type1 = "GHG", subtype1 = "Total", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f5 <- graph_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_DEP, type1 = "I", subtype1 = "Gini", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f6 <- graph_from_datasets(temp) -->
+
+<!-- temp <- data_to_plot(dataset = dataset_EPCI, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f7 <- com_graph_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_EPCI, type1 = "GHG", subtype1 = "Total", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f8 <- com_graph_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_EPCI, type1 = "I", subtype1 = "Gini", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f9 <- com_graph_from_datasets(temp) -->
+<!-- ``` -->
+
+```{r}
+stylish_text <- function(string, tex = FALSE, rotation = FALSE){
+  if (tex) {
+    return(grobTree(rectGrob(gp=gpar(fill="darkgrey", col ="white")),textGrob(TeX(string),gp=gpar(col="white",fontface="bold"))))
+  } else if (rotation){
+    return(grobTree(rectGrob(gp=gpar(fill="darkgrey", col ="white")),textGrob(string,rot = 90, gp=gpar(col="white",fontface="bold", cex = 0.9))))
+  } else {
+    return(grobTree(rectGrob(gp=gpar(fill="darkgrey", col ="white")),textGrob(string,gp=gpar(col="white",fontface="bold", cex = 0.9))))
+  }
+}
+```
+
+```{r}
+df <- data.frame(x = 1, y = factor(1:3), label = c("2016", "2018", "2021"))
+
+# Create the colorbar using ggplot2
+colorbar <- ggplot(df, aes(x = x, y = y, fill = y)) +
+  geom_tile() +
+  scale_fill_viridis_d() +
+  geom_text(aes(label = label), color = "white", size = 5, vjust = 0.5, fontface = "bold") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Year") +
+  scale_y_discrete(labels=c("Value 1", "Value 2", "Value 3")) +
+  coord_fixed(ratio = 1.7)
+
+colorbar <- grobTree(rectGrob(gp=gpar(fill="white", col ="black")), as.grob(colorbar))
+plots <- list(
+  rectGrob(gp=gpar(fill="white", col ="white")),
+  rectGrob(gp=gpar(fill="white", col ="white")),
+  rectGrob(gp=gpar(fill="white", col ="white")),
+  rectGrob(gp=gpar(fill="white", col ="white")),
+  as.grob(colorbar),
+  rectGrob(gp=gpar(fill="white", col ="white")),
+  rectGrob(gp=gpar(fill="white", col ="white")),
+  rectGrob(gp=gpar(fill="white", col ="white")),
+  rectGrob(gp=gpar(fill="white", col ="white"))
+)
+colorbar <- arrangeGrob(grobs = plots, ncol = 3, nrow = 3, widths = c(1, 1,1), heights = c(1,3,1))
+# ggsave("test.svg", plot = colorbar, width=10, height=6)
+
+# colorbar
+```
+
+```{r}
+letter_label <- function(plot, letter, color = "darkslategray" ){
+  plot <- grobTree(as.grob(plot),textGrob(letter, x=0.88,  y=0.85, just="centre",
+  gp=gpar(col= color, fontsize=13, fontface="bold")))
+  return(plot)
+}
+
+f1 <- letter_label(plot = f1,letter = "A")
+f2 <- letter_label(plot = f2,letter = "B")
+f3 <- letter_label(plot = f3,letter = "C")
+f4 <- letter_label(plot = f4,letter = "D")
+f5 <- letter_label(plot = f5,letter = "E")
+f6 <- letter_label(plot = f6,letter = "F")
+f7 <- letter_label(plot = f7,letter = "G")
+f8 <- letter_label(plot = f8,letter = "H")
+f9 <- letter_label(plot = f9,letter = "I")
+```
+
+<!-- ```{r} -->
+<!-- # Create text grobs for row and column names -->
+<!-- col_names <- c(r"(\textbf{y : Gini $[index]$ / x : GHG $[CO_2\ eq]$})", r"(\textbf{y : Median $[\euro]$ / x : GHG $[CO_2\ eq]$})", r"(\textbf{y : Median $[\euro]$ / x : Gini $[index]$})") -->
+<!-- row_names <- c("REG", "DEP", "EPCI") -->
+
+<!-- # Create a list of plots including the text grobs -->
+<!-- plots <- list( -->
+<!--   textGrob(""), stylish_text(col_names[1], tex = TRUE),  -->
+<!--   stylish_text(col_names[2], tex = TRUE), -->
+<!--   stylish_text(col_names[3], tex = TRUE), -->
+<!--   stylish_text(row_names[1]), f1, f2, f3, -->
+<!--   stylish_text(row_names[2]), f4, f5, f6, -->
+<!--   stylish_text(row_names[3]), f7, f8, f9 -->
+<!-- ) -->
+<!-- # Arrange the plots in a grid -->
+<!-- grid_plots <- arrangeGrob(grobs = plots, ncol = 4, nrow = 4, widths = c(0.5, 3, 3, 3), heights = c(0.6, 3, 3, 3)) -->
+
+<!-- grid_plots <- arrangeGrob(grobs = list(grid_plots, colorbar), ncol = 2, nrow = 1, widths = c(10,0.5), heights = c(10)) -->
+
+<!-- # grid_plots <- grobTree(rectGrob(gp=gpar(fill="lightgrey", color = "red")), grid_plots) -->
+
+<!-- ggsave("trajectories_FR_V1.svg", plot = grid_plots, width=10, height=6) -->
+<!-- ``` -->
+
+
+```{r}
+density_from_datasets <- function(datasets, log = FALSE){
+  nb <- length(datasets)
+  names <- colnames(datasets[[1]])
+  merged_data <- bind_rows(datasets)
+  graph <- ggplot(data = merged_data, aes(x = .data[[names[1]]], y = .data[[names[2]]])) +
+    stat_density_2d(geom = "raster", aes(fill = after_stat(ndensity)), contour = FALSE, contour_var = "ndensity")+
+    geom_density2d() +
+    # geom_density_2d_filled(contour_var = "ndensity")+
+    labs(
+      x = names[1],
+      y = names[2],
+      color = names[3]) +
+    theme_minimal() +
+    theme(legend.position = "none" ,
+          axis.title.x = element_text(size = 10),# Set size of x-axis labels
+          axis.title.y = element_text(size = 10), # Set size of y-axis labels
+          axis.text.x = element_text(size = 11),# Set size of x-axis labels
+          axis.text.y = element_text(size = 11)) +# Set size of y-axis labels
+    scale_fill_distiller(palette= "Spectral", direction=-1)+
+    scale_color_viridis_c()+
+    if (log) {
+      scale_x_continuous(trans='log10')
+    }
+    # labs(
+    #   x = element_blank(),
+    #   y = element_blank())
+  return(graph)
+}
+temp <- data_to_plot(dataset = dataset_REG, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years)
+f1 <- density_from_datasets(temp)
+f1
+```
+<!-- ```{r} -->
+<!-- density_scale_from_datasets <- function(datasets){ -->
+<!--   nb <- length(datasets) -->
+<!--   names <- colnames(datasets[[1]]) -->
+<!--   merged_data <- bind_rows(datasets) -->
+<!--   graph <- ggplot(data = merged_data, aes(x = .data[[names[1]]], y = .data[[names[2]]])) + -->
+<!--     stat_density_2d(geom = "raster", aes(fill = after_stat(ndensity)), contour = FALSE, contour_var = "ndensity")+ -->
+<!--     geom_density2d() + -->
+<!--     # geom_density_2d_filled(contour_var = "ndensity")+ -->
+<!--     labs( -->
+<!--       x = names[1], -->
+<!--       y = names[2], -->
+<!--       color = names[3]) + -->
+<!--     # theme_minimal() + -->
+<!--     theme( -->
+<!--           legend.title = element_text(size = 12),  # Adjust legend title size -->
+<!--           legend.text = element_text(size = 11),   # Adjust legend label size -->
+<!--           axis.title.x = element_text(size = 12),# Set size of x-axis labels -->
+<!--           axis.title.y = element_text(size = 12), # Set size of y-axis labels -->
+<!--           axis.text.x = element_text(size = 11),# Set size of x-axis labels -->
+<!--           axis.text.y = element_text(size = 11)) +# Set size of y-axis labels -->
+<!--     scale_fill_distiller(palette= "Spectral", direction=-1, name = "Density")+ -->
+<!--     scale_color_viridis_c()+ -->
+<!--     scale_x_continuous(trans='log10')+ -->
+<!--     labs( -->
+<!--       x = element_blank(), -->
+<!--       y = element_blank()) -->
+<!--   return(graph) -->
+<!-- } -->
+
+<!-- f1 <- density_scale_from_datasets(temp) -->
+<!-- f1 -->
+<!-- leg <- get_legend(f1) -->
+<!-- colorbar2 <- as_ggplot(leg) -->
+<!-- colorbar2 -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- temp <- data_to_plot(dataset = dataset_REG, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f1 <- density_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_REG, type1 = "GHG", subtype1 = "Total", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f2 <-density_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_REG, type1 = "I", subtype1 = "Gini", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f3 <- density_from_datasets(temp) -->
+
+<!-- temp <- data_to_plot(dataset = dataset_DEP, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f4 <-density_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_DEP, type1 = "GHG", subtype1 = "Total", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f5 <- density_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_DEP, type1 = "I", subtype1 = "Gini", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f6 <- density_from_datasets(temp) -->
+
+<!-- temp <- data_to_plot(dataset = dataset_EPCI, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f7 <- density_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_EPCI, type1 = "GHG", subtype1 = "Total", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f8 <- density_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_EPCI, type1 = "I", subtype1 = "Gini", type2 = "W", subtype2 = "Median", years = common_years) -->
+<!-- f9 <- density_from_datasets(temp) -->
+
+<!-- f1 <- letter_label(plot = f1,letter = "A", color = "white") -->
+<!-- f2 <- letter_label(plot = f2,letter = "B", color = "white") -->
+<!-- f3 <- letter_label(plot = f3,letter = "C", color = "white") -->
+<!-- f4 <- letter_label(plot = f4,letter = "D", color = "white") -->
+<!-- f5 <- letter_label(plot = f5,letter = "E", color = "white") -->
+<!-- f6 <- letter_label(plot = f6,letter = "F", color = "white") -->
+<!-- f7 <- letter_label(plot = f7,letter = "G", color = "white") -->
+<!-- f8 <- letter_label(plot = f8,letter = "H", color = "white") -->
+<!-- f9 <- letter_label(plot = f9,letter = "I", color = "white") -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Create text grobs for row and column names -->
+<!-- col_names <- c(r"(\textbf{y : Gini $[index]$ / x : GHG $[CO_2\ eq]$})", r"(\textbf{y : Median $[\euro]$ / x : GHG $[CO_2\ eq]$})", r"(\textbf{y : Median $[\euro]$ / x : Gini $[index]$})") -->
+<!-- row_names <- c("REG", "DEP", "EPCI") -->
+
+<!-- # Create a list of plots including the text grobs -->
+<!-- plots <- list( -->
+<!--   textGrob(""), stylish_text(col_names[1], tex = TRUE),  -->
+<!--   stylish_text(col_names[2], tex = TRUE), -->
+<!--   stylish_text(col_names[3], tex = TRUE), -->
+<!--   stylish_text(row_names[1]), f1, f2, f3, -->
+<!--   stylish_text(row_names[2]), f4, f5, f6, -->
+<!--   stylish_text(row_names[3]), f7, f8, f9 -->
+<!-- ) -->
+<!-- # Arrange the plots in a grid -->
+<!-- grid_plots <- arrangeGrob(grobs = plots, ncol = 4, nrow = 4, widths = c(0.5, 3, 3, 3), heights = c(0.6, 3, 3, 3)) -->
+
+<!-- grid_plots <- arrangeGrob(grobs = list(grid_plots, colorbar), ncol = 2, nrow = 1, widths = c(10,0.5), heights = c(10)) -->
+
+<!-- # grid_plots <- grobTree(rectGrob(gp=gpar(fill="lightgrey", color = "red")), grid_plots) -->
+
+<!-- ggsave("densities_FR_V1.svg", plot = grid_plots, width=10, height=6) #same scale necessary and show it -->
+<!-- ``` -->
+
+<!-- ##Final_figure -->
+<!-- ```{r} -->
+<!-- temp <- data_to_plot(dataset = dataset_REG, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f1 <- graph_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_DEP, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f2 <-graph_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_EPCI, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f3 <- com_graph_from_datasets(temp) -->
+
+<!-- f1 <- letter_label(plot = f1,letter = "A") -->
+<!-- f2 <- letter_label(plot = f2,letter = "B") -->
+<!-- f3 <- letter_label(plot = f3,letter = "C") -->
+
+<!-- temp <- data_to_plot(dataset = dataset_REG, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f4 <- density_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_DEP, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f5 <- density_from_datasets(temp) -->
+<!-- temp <- data_to_plot(dataset = dataset_EPCI, type1 = "GHG", subtype1 = "Total", type2 = "I", subtype2 = "Gini", years = common_years) -->
+<!-- f6 <- density_from_datasets(temp, log = TRUE) -->
+
+<!-- f4 <- letter_label(plot = f4,letter = "D", color = "white") -->
+<!-- f5 <- letter_label(plot = f5,letter = "E", color = "white") -->
+<!-- f6 <- letter_label(plot = f6,letter = "F", color = "white") -->
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- # Create text grobs for row and column names -->
+<!-- row_names <- c(r"(\textbf{Gini $[index]$ \n in function of \n GHG $[CO_2\ eq]$})", "Trajectory", "Density") -->
+<!-- col_names <- c("REG", "DEP", "EPCI") -->
+
+<!-- # Create a list of plots including the text grobs -->
+<!-- plots <- list( -->
+<!--   textGrob(""), stylish_text(col_names[1]),  -->
+<!--   stylish_text(col_names[2]), -->
+<!--   stylish_text(col_names[3]), -->
+<!--   textGrob(""), -->
+<!--   stylish_text(row_names[2], rotation = TRUE), f1, f2, f3, colorbar3, -->
+<!--   stylish_text(row_names[3], rotation = TRUE), f4, f5, f6, colorbar2 -->
+<!-- ) -->
+<!-- # Arrange the plots in a grid -->
+<!-- grid_plots <- arrangeGrob(grobs = plots, ncol = 5, nrow = 3, widths = c(0.4, 3, 3, 3,1), heights = c(0.4, 3, 3)) -->
+
+<!-- ggsave("test.svg", plot = grid_plots, width=10, height=6) #same scale necessary and show it -->
+<!-- ``` -->
+#simplyfing colnames 
+```{r}
+
+```
+
+
+#New methodology (DEP)
+##Doing an MFA and a PCA
+###Constants
+```{r}
+# columns_to_keep <- colnames(dataset)[1:2]
+# columns_to_keep <- c(columns_to_keep, filter_strings_with_substrings(strings = colnames(dataset), substrings = common_years))
+# dataset <- dataset[, (names(dataset) %in% columns_to_keep)]
+```
+
+###MFA formating
+```{r}
+columns_and_group <- sorted_columns(dataset_DEP, year = FALSE)
+columns <- columns_and_group$sorted_columns
+group <- columns_and_group$group_name
+columns <- c(colnames(dataset_DEP)[1:2],columns)
+dataset_DEP <- dataset_DEP[, columns]
+```
+###MFA calculation
+```{r}
+n <- length(colnames(dataset_DEP)) - 2
+nb_in_group <- n/length(group)
+group_id = c(rep(nb_in_group,length(group)))
+res.mfa = MFA(dataset_DEP[3:length(dataset_DEP)], group = group_id, type = c(rep("s",length(group))), ncp = 20, name.group = group, axes = 3:4)
+res.mfa = MFA(dataset_DEP[3:length(dataset_DEP)], group = group_id, type = c(rep("s",length(group))), ncp = 20, name.group = group, axes = 1:2)
+```
+
+
+
+###Screening eigenvalues
+```{r}
+plot_variance(res.mfa)
+print(res.mfa$eig)
+```
+###Applying Kaiser criterion (here we keep the first 12th component)
+```{r}
+res.mfa = MFA(dataset_DEP[3:length(dataset_DEP)], group = group_id, type = c(rep("s",length(group))), ncp = 12, name.group = group, axes = 1:2, graph = FALSE)
+res.pca <- res.mfa$global.pca
+```
+##Clustering (Ward criterion)
+```{r}
+# # using first 10 components
+# x <- res.pca$ind$coord
+# clust_num <- NbClust(
+#     data = (as.data.frame(x) %>% select(where(is.numeric))),
+#     #distance = "maximum",
+#     min.nc = 2, max.nc = 10,
+#     method = "ward.D2",  # minimize the total within-cluster variance
+#     index = 'all')
+# beep(sound = 2) #best is two
+```
+
+###Clustering sub-optimal ward method ?
+```{r}
+res.hcpc <- HCPC(res.pca, kk = Inf, consol = TRUE, nb.clust = 2)
+```
+### within inertia and gain
+```{r}
+# res.hcpc$call$t
+dep_clust <- data.frame(
+  code = dataset_DEP$Region_number,
+  clust = res.hcpc$data.clust$clust
+)
+
+print(table(res.hcpc$data.clust$clust))
+```
+
+
+#### Not exactly the same results with an MFA and a PCA
+```{r}
+plot_clusters_var <- function(res.hcpc, common_years, i){
+  data <- res.hcpc$desc.var$quanti[[i]]
+  data <- var_to_var_over_time(data, common_years)
+  
+  data <- rownames_to_column(data, var = "variables")
+  
+  melted_data <- melt(data, id.vars = "variables", variable.name = "year", value.name = "Z")
+  # print(data)
+  # print( melted_data)
+  plot <- ggplot(melted_data, aes(x = year, y = variables, fill= Z)) +
+    geom_tile(color = "white",
+              lwd = 1.5,
+              linetype = 1)+
+    # scale_fill_continuous(
+    #   na.value = "seashell2",
+    #   type = "viridis",
+    #   limits = c(-3,3),
+    #   oob = scales::squish)+
+    scale_fill_gradient2(low = "#999933", 
+                         mid = "#DDCC77", 
+                         high = "#CC6677", 
+                         midpoint = 0,
+                         na.value = "seashell2",
+                         limits = c(-3,3),
+                         oob = scales::squish)+
+    geom_text(aes(label = round(Z, digits = 1)), color = "white", size = 4.5, fontface = "bold") +
+    # ggtitle(paste0("Cluster n° ",as.character(i))) +
+    theme_minimal()+
+    theme(
+          legend.position = "none",
+          axis.title.x = element_text(size = 12),# Set size of x-axis labels
+          axis.title.y = element_text(size = 12), # Set size of y-axis labels
+          axis.text = element_text(size = 12))# Set size of axis labels)
+  return(plot)
+}
+plot_clusters_var(res.hcpc,common_years, 1)
+```
+
+```{r}
+p1 <- plot_clusters_var(res.hcpc,common_years, 1)
+p2 <- plot_clusters_var(res.hcpc,common_years, 2)
+# plot_clusters_var(res.hcpc,common_years, 3)
+# plot_clusters_var(res.hcpc,common_years, 4)
+# plot_clusters_var(res.hcpc,common_years, 5)
+# plot_clusters_var(res.hcpc,common_years, 6)
+```
+
+```{r}
+# Create a list of plots including the text grobs
+plots <- list(
+  stylish_text("Cluster D.1"),
+  stylish_text("Cluster D.2"),
+  p1, p2
+)
+# Arrange the plots in a grid
+grid_plots <- arrangeGrob(grobs = plots, ncol = 2, nrow = 2, widths = c(3, 3), heights = c(0.2,3))
+
+ggsave("clusters_N_DEP_2.png", plot = grid_plots, width=10, height=4) #same scale necessary and show it
+```
+
+
+<!-- #New methodology (COM) -->
+<!-- ##Doing an MFA and a PCA -->
+<!-- ###Constants -->
+<!-- ```{r} -->
+<!-- # columns_to_keep <- colnames(dataset)[1:2] -->
+<!-- # columns_to_keep <- c(columns_to_keep, filter_strings_with_substrings(strings = colnames(dataset), substrings = common_years)) -->
+<!-- # dataset <- dataset[, (names(dataset) %in% columns_to_keep)] -->
+<!-- ``` -->
+
+<!-- ###MFA formating -->
+<!-- ```{r} -->
+<!-- columns_and_group <- sorted_columns(dataset_COM, year = FALSE) -->
+<!-- columns <- columns_and_group$sorted_columns -->
+<!-- group <- columns_and_group$group_name -->
+<!-- columns <- c(colnames(dataset_COM)[1:2],columns) -->
+<!-- dataset_COM <- dataset_COM[, columns] -->
+<!-- ``` -->
+<!-- ###MFA calculation -->
+<!-- ```{r} -->
+<!-- n <- length(colnames(dataset_COM)) - 2 -->
+<!-- nb_in_group <- n/length(group) -->
+<!-- group_id = c(rep(nb_in_group,length(group))) -->
+<!-- res.mfa = MFA(dataset_COM[3:length(dataset_COM)], group = group_id, type = c(rep("s",length(group))), ncp = 20, name.group = group, axes = 3:4) -->
+<!-- res.mfa = MFA(dataset_COM[3:length(dataset_COM)], group = group_id, type = c(rep("s",length(group))), ncp = 20, name.group = group, axes = 1:2) -->
+<!-- ``` -->
+
+<!-- ###Screening eigenvalues -->
+<!-- ```{r} -->
+<!-- plot_variance(res.mfa) -->
+<!-- print(res.mfa$eig) -->
+<!-- ``` -->
+
+<!-- ###Applying Kaiser criterion (here we keep the first 5th component) -->
+<!-- ```{r} -->
+<!-- res.mfa = MFA(dataset_COM[3:length(dataset_COM)], group = group_id, type = c(rep("s",length(group))), ncp = 5, name.group = group, axes = 1:2, graph = FALSE) -->
+<!-- res.pca <- res.mfa$global.pca -->
+<!-- ``` -->
+<!-- ##Clustering (Ward criterion) -->
+<!-- ```{r} -->
+<!-- # using first 10 components -->
+<!-- x <- res.pca$ind$coord -->
+<!-- clust_num <- NbClust( -->
+<!--     data = (as.data.frame(x) %>% select(where(is.numeric))), -->
+<!--     #distance = "maximum", -->
+<!--     min.nc = 2, max.nc = 20,  -->
+<!--     method = "ward.D2",  # minimize the total within-cluster variance -->
+<!--     index = 'all') #best is 5 -->
+<!-- beep(sound = 2) -->
+<!-- ``` -->
+
+<!-- ###Clustering sub-optimal ward method ? -->
+<!-- ```{r} -->
+<!-- res.hcpc <- HCPC(res.pca, kk = Inf, min = 1, max = 6, consol = TRUE, nb.clust = -1) -->
+<!-- ``` -->
+<!-- ### within inertia and gain -->
+<!-- ```{r} -->
+<!-- res.hcpc$call$t -->
+<!-- com_clust <- data.frame( -->
+<!--   code = dataset_COM$Region_number, -->
+<!--   clust = res.hcpc$data.clust$clust -->
+<!-- ) -->
+<!-- ``` -->
+<!-- #### Not exactly the same results with an MFA and a PCA -->
+
+<!-- ```{r} -->
+<!-- plot_clusters_var(res.hcpc,common_years, 1) -->
+<!-- plot_clusters_var(res.hcpc,common_years, 2) -->
+<!-- plot_clusters_var(res.hcpc,common_years, 3) -->
+<!-- plot_clusters_var(res.hcpc,common_years, 4) -->
+<!-- plot_clusters_var(res.hcpc,common_years, 5) -->
+<!-- plot_clusters_var(res.hcpc,common_years, 6) -->
+<!-- ``` -->
+#New methodology (REG)
+## Short colnames
+```{r}
+colnames(dataset_REG)
+```
+
+##Doing an MFA and a PCA
+###Constants
+```{r}
+# columns_to_keep <- colnames(dataset)[1:2]
+# columns_to_keep <- c(columns_to_keep, filter_strings_with_substrings(strings = colnames(dataset), substrings = common_years))
+# dataset <- dataset[, (names(dataset) %in% columns_to_keep)]
+```
+
+###MFA formating
+```{r}
+columns_and_group <- sorted_columns(dataset_REG, year = FALSE)
+columns <- columns_and_group$sorted_columns
+group <- columns_and_group$group_name
+columns <- c(colnames(dataset_REG)[1:2],columns)
+dataset_REG <- dataset_REG[, columns]
+```
+###MFA calculation
+```{r}
+n <- length(colnames(dataset_REG)) - 2
+nb_in_group <- n/length(group)
+group_id = c(rep(nb_in_group,length(group)))
+res.mfa = MFA(dataset_REG[3:length(dataset_REG)], group = group_id, type = c(rep("s",length(group))), ncp = 20, name.group = group, axes = 3:4)
+res.mfa = MFA(dataset_REG[3:length(dataset_REG)], group = group_id, type = c(rep("s",length(group))), ncp = 20, name.group = group, axes = 1:2)
+```
+
+###Screening eigenvalues
+```{r}
+plot_variance(res.mfa)
+print(res.mfa$eig)
+```
+
+###Applying Kaiser criterion (here we keep the first 5th component)
+```{r}
+res.mfa = MFA(dataset_REG[3:length(dataset_REG)], group = group_id, type = c(rep("s",length(group))), ncp = 6, name.group = group, axes = 1:2, graph = FALSE)
+res.pca <- res.mfa$global.pca
+```
+##Clustering (Ward criterion)
+```{r}
+# # using first 10 components
+# x <- res.pca$ind$coord
+# clust_num <- NbClust(
+#     data = (as.data.frame(x) %>% select(where(is.numeric))),
+#     #distance = "maximum",
+#     min.nc = 2, max.nc = 5,
+#     method = "ward.D2",  # minimize the total within-cluster variance
+#     index = 'all') #best is 2, 3,4 or 6 depending on the range
+# beep(sound = 2)
+```
+
+###Clustering sub-optimal ward method ?
+```{r}
+res.hcpc <- HCPC(res.pca, kk = Inf, min = 1, max = 5, consol = TRUE, nb.clust = 2)
+```
+### within inertia and gain
+```{r}
+# res.hcpc$call$t
+reg_clust <- data.frame(
+  code = dataset_REG$Region_number,
+  clust = res.hcpc$data.clust$clust
+)
+print(table(res.hcpc$data.clust$clust))
+```
+```{r}
+plot_clusters_var(res.hcpc,common_years, 1)
+plot_clusters_var(res.hcpc,common_years, 2)
+# plot_clusters_var(res.hcpc,common_years, 3)
+# plot_clusters_var(res.hcpc,common_years, 4)
+```
+
+#### Not exactly the same results with an MFA and a PCA
+
+```{r}
+p1 <- plot_clusters_var(res.hcpc,common_years, 1)
+p2 <- plot_clusters_var(res.hcpc,common_years, 2)
+# p3 <- plot_clusters_var(res.hcpc,common_years, 3)
+# plot_clusters_var(res.hcpc,common_years, 4)
+# plot_clusters_var(res.hcpc,common_years, 5)
+# plot_clusters_var(res.hcpc,common_years, 6)
+```
+```{r}
+# Create a list of plots including the text grobs
+plots <- list(
+  stylish_text("Cluster R.1"),
+  stylish_text("Cluster R.2"),
+  # stylish_text("Cluster R.3"),
+  p1, p2#, p3
+)
+# Arrange the plots in a grid
+# grid_plots <- arrangeGrob(grobs = plots, ncol = 3, nrow = 2, widths = c(3, 3, 3), heights = c(0.2,3))
+grid_plots <- arrangeGrob(grobs = plots, ncol = 2, nrow = 2, widths = c(3, 3), heights = c(0.2,3))
+
+ggsave("clusters_N_REG_2.png", plot = grid_plots, width=10, height=4) #same scale necessary and show it
+```
+
+
+#New methodology (EPCI)
+##Doing an MFA and a PCA
+###Constants
+```{r}
+# columns_to_keep <- colnames(dataset)[1:2]
+# columns_to_keep <- c(columns_to_keep, filter_strings_with_substrings(strings = colnames(dataset), substrings = common_years))
+# dataset <- dataset[, (names(dataset) %in% columns_to_keep)]
+```
+
+###MFA formating
+```{r}
+columns_and_group <- sorted_columns(dataset_EPCI, year = FALSE)
+columns <- columns_and_group$sorted_columns
+group <- columns_and_group$group_name
+columns <- c(colnames(dataset_EPCI)[1:2],columns)
+dataset_EPCI <- dataset_EPCI[, columns]
+```
+###MFA calculation
+```{r}
+n <- length(colnames(dataset_EPCI)) - 2
+nb_in_group <- n/length(group)
+group_id = c(rep(nb_in_group,length(group)))
+res.mfa = MFA(dataset_EPCI[3:length(dataset_EPCI)], group = group_id, type = c(rep("s",length(group))), ncp = 20, name.group = group, axes = 3:4)
+res.mfa = MFA(dataset_EPCI[3:length(dataset_EPCI)], group = group_id, type = c(rep("s",length(group))), ncp = 20, name.group = group, axes = 1:2)
+```
+
+###Screening eigenvalues
+```{r}
+plot_variance(res.mfa)
+print(res.mfa$eig)
+```
+
+###Applying Kaiser criterion (here we keep the first 5th component)
+```{r}
+res.mfa = MFA(dataset_EPCI[3:length(dataset_EPCI)], group = group_id, type = c(rep("s",length(group))), ncp = 14, name.group = group, axes = 1:2, graph = FALSE)
+res.pca <- res.mfa$global.pca
+```
+##Clustering (Ward criterion)
+###Number of cluster
+```{r}
+# # using first 10 components
+# x <- res.pca$ind$coord
+# clust_num <- NbClust(
+#     data = (as.data.frame(x) %>% select(where(is.numeric))),
+#     #distance = "maximum",
+#     min.nc = 2, max.nc = 20,
+#     method = "ward.D2",  # minimize the total within-cluster variance
+#     index = 'all') #best is 2
+# beep(sound = 2)
+```
+###Clustering sub-optimal ward method ?
+```{r}
+res.hcpc <- HCPC(res.pca, kk = Inf, min = 1, max = 15, consol = TRUE, nb.clust = 2)
+```
+### within inertia and gain
+```{r}
+# res.hcpc$call$t
+epci_clust <- data.frame(
+  code = dataset_EPCI$Region_number,
+  clust = res.hcpc$data.clust$clust
+)
+
+print(table(res.hcpc$data.clust$clust))
+```
+#### Not exactly the same results with an MFA and a PCA
+
+```{r}
+plot_clusters_var(res.hcpc,common_years, 1)
+plot_clusters_var(res.hcpc,common_years, 2)
+# plot_clusters_var(res.hcpc,common_years, 3)
+# plot_clusters_var(res.hcpc,common_years, 4)
+# plot_clusters_var(res.hcpc,common_years, 5)
+# plot_clusters_var(res.hcpc,common_years, 6)
+```
+```{r}
+p1 <- plot_clusters_var(res.hcpc,common_years, 1)
+p2 <- plot_clusters_var(res.hcpc,common_years, 2)
+# p3 <- plot_clusters_var(res.hcpc,common_years, 3)
+# p4 <- plot_clusters_var(res.hcpc,common_years, 4)
+# plot_clusters_var(res.hcpc,common_years, 5)
+# plot_clusters_var(res.hcpc,common_years, 6)
+```
+```{r}
+# Create a list of plots including the text grobs
+plots <- list(
+  stylish_text("Cluster I.1"),
+  stylish_text("Cluster I.2"),
+  p1, p2#,
+  # stylish_text("Cluster I.3"),
+  # stylish_text("Cluster I.4"),
+  # p3, p4
+)
+# Arrange the plots in a grid
+grid_plots <- arrangeGrob(grobs = plots, ncol = 2, nrow = 2, widths = c(3, 3), heights = c(0.2,3))
+
+ggsave("clusters_N_EPCI_2.png", plot = grid_plots, width=10, height=4) 
+```
+
+#Maps
+##Prepare the dataframes
+### Load geojson files
+```{r}
+map_communes <- read_sf("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\MAP\\communes.geojson")
+map_communes_simplified <- read_sf("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\MAP\\communes-version-simplifiee.geojson")
+map_departments_simplified <- read_sf("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\MAP\\departements-version-simplifiee.geojson")
+map_regions_simplified <- read_sf("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\MAP\\regions-version-simplifiee.geojson")
+map_epci <- read_sf("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\MAP\\epci-shapefile_V2.geojson")
+```
+
+```{r}
+colnames(map_epci)[3] <- "code"
+print(colnames(map_epci))
+```
+
+
+
+###add the cluster column
+```{r}
+# map_communes<- merge(map_communes, com_clust, by = "code")
+# map_communes_simplified <- merge(map_communes_simplified, com_clust, by = "code")
+map_departments_simplified <- merge(map_departments_simplified, dep_clust, by = "code")
+map_regions_simplified <- merge(map_regions_simplified, reg_clust, by = "code")
+map_epci <- merge(map_epci, epci_clust, by = "code")
+```
+
+##Represent the results
+```{r}
+plot_map <- function(map, linewidth = 0.1, lty = 1, manual_value = FALSE, colors = c("#DF536B","#61D04F","#2297E6","#F5C710","gray62","#CD0BBC","#28E2E5" ), labels){
+  plot <- ggplot(data = map) +
+  geom_sf(aes(fill = clust), color = "white", size = 1, linewidth = linewidth, lty = lty) +
+  theme_minimal() +
+  # labs(title = "Colored States of the USA",
+  #      subtitle = "Random colors assigned to states",
+  #      caption = "Source: Natural Earth") +
+  theme(legend.position = "right")
+        # legend.key.height= unit(0.3, 'cm'),
+        # legend.key.width= unit(0.3, 'cm'),
+        # legend.title = element_text(size=10),
+        # legend.text = element_text(size=8))
+  # coord_sf(xlim = c(-80,-60))
+  if (manual_value) {
+      col_label <- scale_fill_manual(values = colors,
+                    name = "Cluster", labels= labels)
+      plot <- plot + col_label
+  }
+  return(plot)
+}
+m1 <- plot_map(map_regions_simplified, manual_value = TRUE, labels = c("R.1", "R.2"), linewidth = 0.1,
+         colors = c("#F5C710","#CD0BBC"))
+m2 <- plot_map(map_departments_simplified, manual_value = TRUE, labels = c("D.1", "D.2"),
+         colors = c("#F5C710","#CD0BBC"))
+m3 <- plot_map(map_epci, manual_value = TRUE, labels = c("I.1", "I.2"), linewidth = 0.01,
+         colors = c("#F5C710","#CD0BBC"))
+# plot_map(map_communes_simplified)
+```
+
+```{r}
+# Create a list of plots including the text grobs
+plots <- list(
+  stylish_text("Regions"),
+  stylish_text("Departments"),
+  stylish_text("EPCIs"),
+  m1,m2,m3
+)
+# Arrange the plots in a grid
+grid_plots <- arrangeGrob(grobs = plots, ncol = 3, nrow = 2, widths = c(3, 3,3), heights = c(0.2,3))
+
+ggsave("maps_FR_2.png", plot = grid_plots, width=10, height=3) 
+```
+
+#EPCIs in detail
+
+
+
+
+
+
+###Applying Kaiser criterion (here we keep the first 5th component)
+```{r}
+res.mfa = MFA(dataset_EPCI[3:length(dataset_EPCI)], group = group_id, type = c(rep("s",length(group))), ncp = 14, name.group = group, axes = 1:2, graph = FALSE)
+res.pca <- res.mfa$global.pca
+```
+##Clustering (Ward criterion)
+
+###Clustering sub-optimal ward method ?
+```{r}
+res.hcpc <- HCPC(res.pca, kk = Inf, min = 1, max = 15, consol = TRUE, nb.clust =6)
+```
+### within inertia and gain
+```{r}
+# res.hcpc$call$t
+epci_clust <- data.frame(
+  code = dataset_EPCI$Region_number,
+  clust = res.hcpc$data.clust$clust
+)
+
+print(table(res.hcpc$data.clust$clust))
+```
+#### Not exactly the same results with an MFA and a PCA
+
+```{r}
+plot_clusters_var(res.hcpc,common_years, 1)
+plot_clusters_var(res.hcpc,common_years, 2)
+plot_clusters_var(res.hcpc,common_years, 3)
+plot_clusters_var(res.hcpc,common_years, 4)
+plot_clusters_var(res.hcpc,common_years, 5)
+plot_clusters_var(res.hcpc,common_years, 6)
+
+```
+```{r}
+p1 <- plot_clusters_var(res.hcpc,common_years, 1)
+p2 <- plot_clusters_var(res.hcpc,common_years, 2)
+p3 <- plot_clusters_var(res.hcpc,common_years, 3)
+p4 <- plot_clusters_var(res.hcpc,common_years, 4)
+p5 <- plot_clusters_var(res.hcpc,common_years, 5)
+p6 <- plot_clusters_var(res.hcpc,common_years, 6)
+```
+```{r}
+# Create a list of plots including the text grobs
+plots <- list(
+  stylish_text("Cluster $I_6$.1", tex = TRUE),
+  stylish_text("Cluster $I_6$.2", tex = TRUE),
+  stylish_text("Cluster $I_6$.3", tex = TRUE),
+  p1, p2, p3,
+  stylish_text("Cluster $I_6$.4", tex = TRUE),
+  stylish_text("Cluster $I_6$.5", tex = TRUE),
+  stylish_text("Cluster $I_6$.6", tex = TRUE),
+  p4, p5, p6
+)
+# Arrange the plots in a grid
+grid_plots <- arrangeGrob(grobs = plots, ncol = 3, nrow = 4, widths = c(3, 3, 3), heights = c(0.2,3,0.2,3))
+
+ggsave("clusters_N_EPCI_6.png", plot = grid_plots, width=10, height=8) 
+```
+```{r}
+map_epci <- read_sf("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\MAP\\epci-shapefile_V2.geojson")
+colnames(map_epci)[3] <- "code"
+map_epci <- merge(map_epci, epci_clust, by = "code")
+```
+
+```{r}
+plot <- plot_map(map_epci, manual_value = TRUE, labels = c(TeX("$I_6$.1"), TeX("$I_6$.2"), TeX("$I_6$.3"), TeX("$I_6$.4"), TeX("$I_6$.5"), TeX("$I_6$.6")), linewidth = 0.01,
+         colors = c("#2297E6","#61D04F","#F5C710","#DF536B","gray62","#CD0BBC"))
+ggsave("maps_FR_6.png", plot = plot, width=5, height=3) 
+```
+#Do chile

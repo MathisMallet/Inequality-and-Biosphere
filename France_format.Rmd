@@ -1,0 +1,796 @@
+---
+title: "France_format"
+author: "Mathis Mallet"
+date: "2024-06-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# library(haven) #better function for reading read_dta
+# library(foreign) #to read dta files read.dta
+# source("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Code\\functions.R") #import our local functions
+# source("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Code\\functions_format_chili.R")
+# library(progress)
+# library(ineq)
+library(openxlsx) #to read xlsx files of pop
+library(dplyr)
+library(readxl)
+```
+
+#Wealth and Inequality data
+##Importing
+###Regions
+
+```{r}
+I_REG_2021 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2021\\FILO2021_DISP_REG.xlsx", sheet = "ENSEMBLE", skip = 5)
+
+I_REG_2018 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2018\\FILO2018_DISP_REG.xlsx", sheet = "ENSEMBLE", skip = 5)
+
+I_REG_2016 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2016\\FILO2016_DISP_REG.xls", sheet = "ENSEMBLE", skip= 5)
+
+```
+
+###Departments
+```{r}
+I_DEP_2021 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2021\\FILO2021_DISP_DEP.xlsx", sheet = "ENSEMBLE", skip = 5)
+
+I_DEP_2018 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2018\\FILO2018_DISP_DEP.xlsx", sheet = "ENSEMBLE", skip = 5)
+
+I_DEP_2016 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2016\\FILO2016_DISP_DEP.xls", sheet = "ENSEMBLE", skip= 5)
+
+```
+
+###Communes
+```{r}
+I_COM_2021 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2021\\COM\\FILO2021_DISP_COM.xlsx", sheet = "ENSEMBLE", skip = 5)
+
+I_COM_2018 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2018\\COM\\FILO2018_DISP_COM.xlsx", sheet = "ENSEMBLE", skip = 5)
+
+I_COM_2016 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2016\\COM\\FILO2016_DISP_COM.xls", sheet = "ENSEMBLE", skip= 5)
+```
+
+
+
+##Preformating communes
+###Testing for number of valid values
+```{r}
+#In the 2021 data the missing values are stored as "s" values, we turn them into NA values
+I_COM_2021 <- as.data.frame(lapply(I_COM_2021, function(x) {
+  # If the value is "s", replace it with NA
+  x[x == "s"] <- NA
+  return(x)
+}))
+
+non_na_count <- sum(!is.na(I_COM_2016$Q116))
+print(non_na_count)
+non_na_count <- sum(!is.na(I_COM_2018$Q118))
+print(non_na_count)
+non_na_count <- sum(!is.na(I_COM_2021$Q121))
+print(non_na_count)
+```
+###Extracting the valid communes in common
+```{r}
+CODGEO_COM_2016 <- I_COM_2016[!is.na(I_COM_2016$Q116),]$CODGEO
+CODGEO_COM_2018 <- I_COM_2018[!is.na(I_COM_2018$Q118),]$CODGEO
+CODGEO_COM_2021 <- I_COM_2021[!is.na(I_COM_2021$Q121),]$CODGEO
+
+CODGEO_COM_ALL <- Reduce(intersect, list(CODGEO_COM_2016,CODGEO_COM_2018,CODGEO_COM_2021))
+print(length(CODGEO_COM_ALL))
+```
+###Keeping only the common valid communes in the datasets
+```{r}
+I_COM_2016 <- I_COM_2016[(I_COM_2016$CODGEO %in% CODGEO_COM_ALL),]
+I_COM_2018 <- I_COM_2018[(I_COM_2018$CODGEO %in% CODGEO_COM_ALL),]
+I_COM_2021 <- I_COM_2021[(I_COM_2021$CODGEO %in% CODGEO_COM_ALL),]
+```
+##Selecting the targeted initial columns
+###Defining the targeted columns
+```{r}
+columns_to_keep <- list("CODGEO", "LIBGEO")
+columns_to_keep_temp <- list("D1","D2","D8","D9","Q2", "D4","GI")
+columns_to_keep_16 <- lapply(X = columns_to_keep_temp, FUN = paste0, 16)
+columns_to_keep_18 <- lapply(X = columns_to_keep_temp, FUN = paste0, 18)
+columns_to_keep_21 <- lapply(X = columns_to_keep_temp, FUN = paste0, 21)
+columns_to_keep <- unlist(c(columns_to_keep, columns_to_keep_16,columns_to_keep_18, columns_to_keep_21))
+```
+###Turning 2021 data into floats
+```{r}
+replace_comma_to_float <- function(x) {
+  as.numeric(as.numeric(gsub(",", ".", x)))
+}
+
+columns_to_convert <- names(I_REG_2021)[3:length(I_REG_2021)]
+I_REG_2021[columns_to_convert] <- lapply(I_REG_2021[columns_to_convert], replace_comma_to_float)
+
+columns_to_convert <- names(I_DEP_2021)[3:length(I_DEP_2021)]
+I_DEP_2021[columns_to_convert] <- lapply(I_DEP_2021[columns_to_convert], replace_comma_to_float)
+
+columns_to_convert <- names(I_COM_2021)[3:length(I_COM_2021)]
+I_COM_2021[columns_to_convert] <- lapply(I_COM_2021[columns_to_convert], replace_comma_to_float)
+```
+###Merging the dataframes
+```{r}
+I_REG <- merge(I_REG_2016,I_REG_2018, by = "CODGEO")
+I_REG <- merge(I_REG,I_REG_2021, by = "CODGEO")
+
+I_DEP <- merge(I_DEP_2016,I_DEP_2018, by = "CODGEO")
+I_DEP <- merge(I_DEP,I_DEP_2021, by = "CODGEO")
+
+I_COM <- merge(I_COM_2016,I_COM_2018, by = "CODGEO")
+I_COM <- merge(I_COM,I_COM_2021, by = "CODGEO")
+```
+###Keeping only the targeted columns
+
+```{r}
+I_REG <- I_REG %>% select(all_of(columns_to_keep))
+I_DEP <- I_DEP %>% select(all_of(columns_to_keep))
+I_COM <- I_COM %>% select(all_of(columns_to_keep))
+```
+##Doing the operation to get the final data
+
+```{r}
+calculate_inequalities <- function(data){
+  years = c("2016", "2018","2021")
+  for (year in years){
+    data[paste0("I-S8020-",year)] <- data[,paste0("D8",substr(year,3,4))]/data[,paste0("D2",substr(year,3,4))]
+    data[paste0("I-P9010-",year)] <- data[,paste0("D9",substr(year,3,4))]/data[,paste0("D1",substr(year,3,4))]
+    data[paste0("I-P9050-",year)] <- data[,paste0("D9",substr(year,3,4))]/data[,paste0("Q2",substr(year,3,4))]
+    data[paste0("I-P5010-",year)] <- data[,paste0("Q2",substr(year,3,4))]/data[,paste0("D1",substr(year,3,4))]
+    data[paste0("I-Palma-",year)] <- data[,paste0("D9",substr(year,3,4))]/data[,paste0("D4",substr(year,3,4))]
+    
+    names(data)[names(data) == paste0("GI",substr(year,3,4))] <- paste0("I-Gini-",year)
+    names(data)[names(data) == paste0("Q2",substr(year,3,4))] <- paste0("W-Median-",year)
+    
+    list_to_remove <- c(paste0("D8",substr(year,3,4)),paste0("D2",substr(year,3,4)), paste0("D9",substr(year,3,4)), paste0("D1",substr(year,3,4)),paste0("D4",substr(year,3,4)))
+    data <- data[, !(names(data) %in% list_to_remove)]
+  }
+  names(data)[names(data) == "CODGEO"] <- "Region_number"
+  names(data)[names(data) == "LIBGEO"] <- "Region"
+  return(data)
+}
+
+I_REG <- calculate_inequalities(I_REG)
+I_DEP <- calculate_inequalities(I_DEP)
+I_COM <- calculate_inequalities(I_COM)
+```
+
+#GHG Data
+##Importing at communal level
+```{r}
+GHG_16 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\SYNTHESE_resultats_emissions_2016_IGT_d.xlsx", sheet = "PRG")
+POP_16 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\SYNTHESE_resultats_emissions_2016_IGT_d.xlsx", sheet = "Population")
+GHG_18 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\SYNTHESE_resultats_emissions_2018_IGT_d.xlsx", sheet = "PRG")
+POP_18 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\SYNTHESE_resultats_emissions_2018_IGT_d.xlsx", sheet = "Population")
+GHG_21 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\2021\\SYNTHESE_résultats_émissions_2021_IGT-d.xlsx", sheet = "TOT_CO2E")
+POP_21 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\2021\\ensemble.xlsx", sheet = "Communes", skip = 7)
+```
+### conversion table
+```{r}
+COD_COM <- read.csv(file = "C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\commune2021.csv") 
+```
+##Formating the 2021 file as the 2016 and 2018 by additionning each commune into one line
+```{r}
+#Keep only the interesting columns
+cols_to_remove <- c("PERIMETRE","LAB_REG","LAB_DEP","EPCI","LIBEPCI","NOM_M","CODE_POSTAL","NOM_CP","CODPOL","export")
+GHG_21 <- GHG_21[,!(names(GHG_21) %in% cols_to_remove)]
+#Sum by communes
+GHG_21 <- GHG_21 %>%
+  group_by(INSEE_COM) %>%
+  summarize(across(everything(), sum, na.rm = TRUE))
+```
+
+##Simplefying the 2016 and 2018 datasets
+```{r}
+cols_to_remove <- c("CODE POL","EPCI","TEST", "...14","0","TRUE")
+GHG_16 <- GHG_16[,!(names(GHG_16) %in% cols_to_remove)]
+
+cols_to_remove <- c("CODE POL","EPCI", "...13","...14","0","TRUE")
+GHG_18 <- GHG_18[,!(names(GHG_18) %in% cols_to_remove)]
+
+```
+
+##Adding the total column to each dataset
+```{r}
+cols_to_sum <- colnames(GHG_16)[2:length(colnames(GHG_16))]
+GHG_16 <- GHG_16 %>%
+  mutate(Total = rowSums(across(all_of(cols_to_sum))))
+
+cols_to_sum <- colnames(GHG_18)[2:length(colnames(GHG_18))]
+GHG_18 <- GHG_18 %>%
+  mutate(Total = rowSums(across(all_of(cols_to_sum))))
+
+cols_to_sum <- colnames(GHG_21)[2:length(colnames(GHG_21))]
+GHG_21 <- GHG_21 %>%
+  mutate(Total = rowSums(across(all_of(cols_to_sum))))
+```
+
+##Select all the communes of a department or a region
+```{r}
+select_dep <- function(COD_COM, Dep_num){
+  corresponding_lines <- COD_COM[COD_COM$DEP == Dep_num,]
+  corresponding_com <- corresponding_lines$COM
+  return(corresponding_com)
+}
+select_dep(COD_COM, "75")
+
+select_reg <- function(COD_COM, Reg_num){
+  corresponding_lines <- COD_COM[!(is.na(COD_COM$REG)),]
+  corresponding_lines <- corresponding_lines[corresponding_lines$REG == Reg_num,]
+  corresponding_com <- corresponding_lines$COM
+  return(corresponding_com)
+}
+# select_reg(COD_COM, "11")
+```
+##Create the data for regions
+###Get the list of regions
+```{r}
+list_of_regions <- unique(COD_COM$REG)
+list_of_regions <- list_of_regions[!is.na(list_of_regions)]
+```
+###Get the pop of a region
+####Format 2021 pop data to have the CODE_COM_2020 columns
+```{r}
+POP_21$CODE_COM_2020 <- paste0(POP_21[["Code département"]], POP_21[["Code commune"]])
+```
+####Change pop column name to be homogenous
+```{r}
+names(POP_16)[names(POP_16) == "Population municipale 2016"] <- "pop"
+names(POP_18)[names(POP_18) == "Population municipale 2018"] <- "pop"
+names(POP_21)[names(POP_21) == "Population municipale"] <- "pop"
+```
+####Add 75056 to 2021 pop
+```{r}
+POP_21 <- POP_21[,colnames(POP_21) %in% c("pop", "CODE_COM_2020")]
+paris_row <- data.frame(
+  pop = 2133111,
+  CODE_COM_2020 = "75056"
+)
+POP_21 <- rbind(POP_21,paris_row)
+remove_arr <- c("75101", "75102", "75103", "75104", "75105", "75106", "75107", "75108", "75109", "75110", "75111","75112", "75113", "75114", "75115", "75116", "75117", "75118", "75119", "75120")
+POP_21 <- POP_21[!(POP_21$CODE_COM_2020 %in% remove_arr),]
+```
+
+```{r}
+source("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Code\\functions_analysis_chile.R")
+
+filter_strings_with_substrings(POP_21$CODE_COM_2020, c("751"))
+```
+
+
+
+####create a function that return the pop of a region
+```{r}
+pop_by_region <- function(data, region_number, COD_COM){
+  communes <- select_reg(COD_COM, region_number)
+  reduced_data <- data[(data$CODE_COM_2020 %in% communes),]
+  full_pop <- sum(reduced_data$pop)
+  return(full_pop)
+}
+
+pop_by_region(POP_16,11,COD_COM)
+```
+###Get the GHG of regions
+####Get same formating for 2021
+```{r}
+names(GHG_21)[names(GHG_21) == "INSEE_COM"] <- "CODE_COM_2020"
+```
+####Formating COD_COM
+```{r}
+COD_COM <- COD_COM[COD_COM$TYPECOM %in% c("COM","ARM"),]
+```
+
+```{r}
+divide_REG_by_pop <- function(data, COD_COM, pop_data){
+  for (region in data$REG){
+    region_pop <- pop_by_region(pop_data, region, COD_COM)
+    data[data$REG == region,(2:ncol(data))] <- data[data$REG == region,(2:ncol(data))] / region_pop
+  }
+  return(data)
+}###it should return a dataset where every region line is divided by the number of people in the region
+
+GHG_by_region <- function(data, COD_COM, pop_data){
+  corresponding_region <- c()
+  cpt <- 0
+  for (commune in data$CODE_COM_2020){
+    region <- COD_COM[COD_COM$COM == commune,]$REG
+    corresponding_region <- c(corresponding_region,region)
+    if (length(region) == 0){
+      data <- data[!(data$CODE_COM_2020==commune),]
+      cpt <- cpt + 1
+    }
+  }
+  print(paste(as.character(cpt-1), "communes removed"))
+  data$REG <- corresponding_region
+  data$CODE_COM_2020 <- NULL
+  data <- data %>%
+    group_by(REG) %>%
+    summarize(across(everything(), sum, na.rm = TRUE))
+  data <- subset(data, data$REG > 10)
+  data <- divide_REG_by_pop(data, COD_COM, pop_data)
+  return(data)
+}
+
+GHG_REG_16 <- GHG_by_region(data = GHG_16,COD_COM = COD_COM, pop_data = POP_16)
+GHG_REG_18 <- GHG_by_region(data = GHG_18,COD_COM = COD_COM, pop_data = POP_18)
+GHG_REG_21 <- GHG_by_region(data = GHG_21,COD_COM = COD_COM, pop_data = POP_21)
+```
+##Create the data for departments
+###Get the list of departments
+```{r}
+list_of_dep <- unique(COD_COM$DEP)
+```
+###Get the pop of a dep
+####Format 2021 pop data to have the CODE_COM_2020 columns (already done above)
+####Change pop column name to be homogenous (already done above)
+####create a function that return the pop of a dep
+```{r}
+pop_by_dep <- function(data, dep_number, COD_COM){
+  communes <- select_dep(COD_COM, dep_number)
+  reduced_data <- data[(data$CODE_COM_2020 %in% communes),]
+  full_pop <- sum(reduced_data$pop)
+  return(full_pop)
+}
+
+pop_by_dep(POP_21,75,COD_COM)
+```
+### Get the GHG of departments
+```{r}
+divide_DEP_by_pop <- function(data, COD_COM, pop_data){
+  for (dep in data$DEP){
+    dep_pop <- pop_by_dep(pop_data, dep, COD_COM)
+    data[data$DEP == dep,(2:ncol(data))] <- data[data$DEP == dep,(2:ncol(data))] / dep_pop
+  }
+  return(data)
+}###it should return a dataset where every region line is divided by the number of people in the dep
+
+GHG_by_dep <- function(data, COD_COM, pop_data){
+  corresponding_dep <- c()
+  cpt <- 0
+  for (commune in data$CODE_COM_2020){
+    dep <- COD_COM[COD_COM$COM == commune,]$DEP
+    corresponding_dep <- c(corresponding_dep,dep)
+    if (length(dep) == 0){
+      data <- data[!(data$CODE_COM_2020==commune),]
+      cpt <- cpt + 1
+    }
+  }
+  print(paste(as.character(cpt-1), "communes removed"))
+  data$DEP <- corresponding_dep
+  data$CODE_COM_2020 <- NULL
+  data <- data %>%
+    group_by(DEP) %>%
+    summarize(across(everything(), sum, na.rm = TRUE))
+  data <- data[c(1:96),]
+  data <- divide_DEP_by_pop(data, COD_COM, pop_data)
+  return(data)
+}
+
+GHG_DEP_16 <- GHG_by_dep(data = GHG_16,COD_COM = COD_COM, pop_data = POP_16)
+GHG_DEP_18 <- GHG_by_dep(data = GHG_18,COD_COM = COD_COM, pop_data = POP_18)
+GHG_DEP_21 <- GHG_by_dep(data = GHG_21,COD_COM = COD_COM, pop_data = POP_21)
+```
+
+### Get the GHG of communes
+####Get only same communes (for calculation time)
+```{r}
+COD_COM_16 <- GHG_16$CODE_COM_2020
+COD_COM_18 <- GHG_18$CODE_COM_2020
+COD_COM_21 <- GHG_21$CODE_COM_2020
+
+CODGEO_COM_ALL <- Reduce(intersect, list(COD_COM_16,COD_COM_18,COD_COM_21,CODGEO_COM_ALL))
+print(length(CODGEO_COM_ALL))
+```
+
+```{r}
+GHG_COM_16  <- GHG_16[(GHG_16$CODE_COM_2020 %in% CODGEO_COM_ALL),]
+GHG_COM_18  <- GHG_18[(GHG_18$CODE_COM_2020 %in% CODGEO_COM_ALL),]
+GHG_COM_21  <- GHG_21[(GHG_21$CODE_COM_2020 %in% CODGEO_COM_ALL),]
+```
+
+#### Format by GHG per capita
+```{r}
+divide_com_by_pop <- function(data, COD_COM, pop_data){
+  cpt <- 0
+  for (com in data$CODE_COM_2020){
+    if (any(pop_data[["CODE_COM_2020"]] == com)){
+      com_pop <- pop_data[(pop_data$CODE_COM_2020 == com),"pop"][[1]]
+      data[data$CODE_COM_2020 == com,(2:ncol(data))] <- data[data$CODE_COM_2020 == com,(2:ncol(data))] / com_pop
+    } else {
+      cpt <- cpt + 1
+      data <- data[!(data$CODE_COM_2020==com),] 
+    }
+  }
+  print(paste(as.character(cpt), "communes removed"))
+  return(data)
+} ###it should return a dataset where every region line is divided by the number of people in the dep
+
+GHG_by_com <- function(data, COD_COM, pop_data, list_of_COM){
+  data <- divide_com_by_pop(data, COD_COM, pop_data)
+  return(data)
+}
+
+GHG_COM_16 <- GHG_by_com(data = GHG_COM_16,COD_COM = COD_COM, pop_data = POP_16)
+GHG_COM_18 <- GHG_by_com(data = GHG_COM_18,COD_COM = COD_COM, pop_data = POP_18)
+GHG_COM_21 <- GHG_by_com(data = GHG_COM_21,COD_COM = COD_COM, pop_data = POP_21)
+```
+####Get only same communes (final)
+```{r}
+COD_COM_16 <- GHG_COM_16$CODE_COM_2020
+COD_COM_18 <- GHG_COM_18$CODE_COM_2020
+COD_COM_21 <- GHG_COM_21$CODE_COM_2020
+
+CODGEO_COM_ALL <- Reduce(intersect, list(COD_COM_16,COD_COM_18,COD_COM_21,CODGEO_COM_ALL))
+print(length(CODGEO_COM_ALL))
+
+GHG_COM_16  <- GHG_COM_16[(GHG_COM_16$CODE_COM_2020 %in% CODGEO_COM_ALL),]
+GHG_COM_18  <- GHG_COM_18[(GHG_COM_18$CODE_COM_2020 %in% CODGEO_COM_ALL),]
+GHG_COM_21  <- GHG_COM_21[(GHG_COM_21$CODE_COM_2020 %in% CODGEO_COM_ALL),]
+
+I_COM <- I_COM[(I_COM$Region_number %in% CODGEO_COM_ALL),]
+```
+## Start recombining dataframes
+###Colnames focus
+####Creating colnames
+```{r}
+years <- c("2016", "2018","2021")
+sectors <- c("Energy", "Industry", "Residential", "Tertiary", "Waste", "Road", "Other_Transp.", "Int._Transp.", "Agriculture", "Total")
+list_of_labels <- list()
+for (year in years){
+  year_labels <- c()
+  for (sector in sectors){
+    year_labels <- c(year_labels, paste0("GHG-",sector,"-",year))
+  }
+  list_of_labels <- append(list_of_labels, list(year_labels))
+}
+```
+
+####Changing colnames
+```{r}
+colnames(GHG_COM_16) <- c("Region_number", list_of_labels[[1]])
+colnames(GHG_DEP_16) <- c("Region_number", list_of_labels[[1]])
+colnames(GHG_REG_16) <- c("Region_number", list_of_labels[[1]])
+
+colnames(GHG_COM_18) <- c("Region_number", list_of_labels[[2]])
+colnames(GHG_DEP_18) <- c("Region_number", list_of_labels[[2]])
+colnames(GHG_REG_18) <- c("Region_number", list_of_labels[[2]])
+
+colnames(GHG_COM_21) <- c("Region_number", list_of_labels[[3]])
+colnames(GHG_DEP_21) <- c("Region_number", list_of_labels[[3]])
+colnames(GHG_REG_21) <- c("Region_number", list_of_labels[[3]])
+```
+
+###Combinig GHG dataframes
+```{r}
+GHG_REG <- merge(GHG_REG_16,GHG_REG_18, by = "Region_number")
+GHG_REG <- merge(GHG_REG,GHG_REG_21, by = "Region_number")
+
+GHG_DEP <- merge(GHG_DEP_16,GHG_DEP_18, by = "Region_number")
+GHG_DEP <- merge(GHG_DEP,GHG_DEP_21, by = "Region_number")
+
+GHG_COM <- merge(GHG_COM_16,GHG_COM_18, by = "Region_number")
+GHG_COM <- merge(GHG_COM,GHG_COM_21, by = "Region_number")
+```
+###Combining final dataframes
+```{r}
+REG <- merge(I_REG,GHG_REG)
+DEP <- merge(I_DEP,GHG_DEP)
+COM <- merge(I_COM,GHG_COM)
+```
+
+```{r}
+write.csv(REG, "trilemma_16_18_21_France_REG.csv", row.names = FALSE)
+write.csv(DEP, "trilemma_16_18_21_France_DEP.csv", row.names = FALSE)
+write.csv(COM, "trilemma_16_18_21_France_COM.csv", row.names = FALSE)
+```
+
+
+
+#Adding EPCI (update)
+
+#Wealth and Inequality data
+##Importing
+###EPCIs
+```{r}
+I_EPCI_2021 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2021\\FILO2021_DISP_EPCI.xlsx", sheet = "ENSEMBLE", skip = 5)
+
+I_EPCI_2018 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2018\\FILO2018_DISP_EPCI.xlsx", sheet = "ENSEMBLE", skip = 5)
+
+I_EPCI_2016 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\Inequalities\\FILO2016\\FILO2016_DISP_EPCI.xls", sheet = "ENSEMBLE", skip= 5)
+```
+
+
+
+##Preformating communes
+###Testing for number of valid values
+```{r}
+#In the 2021 data the missing values are stored as "s" values, we turn them into NA values
+I_EPCI_2021 <- as.data.frame(lapply(I_EPCI_2021, function(x) {
+  # If the value is "s", replace it with NA
+  x[x == "s"] <- NA
+  print("NAAAAAAAAAAAAA")
+  return(x)
+}))
+
+non_na_count <- sum(!is.na(I_EPCI_2016$Q116))
+print(non_na_count)
+non_na_count <- sum(!is.na(I_EPCI_2018$Q118))
+print(non_na_count)
+non_na_count <- sum(!is.na(I_EPCI_2021$Q121))
+print(non_na_count)
+```
+###Extracting the valid communes in common
+```{r}
+CODGEO_EPCI_2016 <- I_EPCI_2016[!is.na(I_EPCI_2016$Q116),]$CODGEO
+CODGEO_EPCI_2018 <- I_EPCI_2018[!is.na(I_EPCI_2018$Q118),]$CODGEO
+CODGEO_EPCI_2021 <- I_EPCI_2021[!is.na(I_EPCI_2021$Q121),]$CODGEO
+
+CODGEO_EPCI_ALL <- Reduce(intersect, list(CODGEO_EPCI_2016,CODGEO_EPCI_2018,CODGEO_EPCI_2021))
+print(length(CODGEO_EPCI_ALL))
+```
+###Keeping only the common valid communes in the datasets
+```{r}
+I_EPCI_2016 <- I_EPCI_2016[(I_EPCI_2016$CODGEO %in% CODGEO_EPCI_ALL),]
+I_EPCI_2018 <- I_EPCI_2018[(I_EPCI_2018$CODGEO %in% CODGEO_EPCI_ALL),]
+I_EPCI_2021 <- I_EPCI_2021[(I_EPCI_2021$CODGEO %in% CODGEO_EPCI_ALL),]
+```
+##Selecting the targeted initial columns
+###Defining the targeted columns
+```{r}
+columns_to_keep <- list("CODGEO", "LIBGEO")
+columns_to_keep_temp <- list("D1","D2","D8","D9","Q2", "D4","GI")
+columns_to_keep_16 <- lapply(X = columns_to_keep_temp, FUN = paste0, 16)
+columns_to_keep_18 <- lapply(X = columns_to_keep_temp, FUN = paste0, 18)
+columns_to_keep_21 <- lapply(X = columns_to_keep_temp, FUN = paste0, 21)
+columns_to_keep <- unlist(c(columns_to_keep, columns_to_keep_16,columns_to_keep_18, columns_to_keep_21))
+```
+###Turning 2021 data into floats
+```{r}
+replace_comma_to_float <- function(x) {
+  as.numeric(as.numeric(gsub(",", ".", x)))
+}
+
+columns_to_convert <- names(I_EPCI_2021)[3:length(I_EPCI_2021)]
+I_EPCI_2021[columns_to_convert] <- lapply(I_EPCI_2021[columns_to_convert], replace_comma_to_float)
+
+```
+###Merging the dataframes
+```{r}
+I_EPCI <- merge(I_EPCI_2016,I_EPCI_2018, by = "CODGEO")
+I_EPCI <- merge(I_EPCI,I_EPCI_2021, by = "CODGEO")
+```
+###Keeping only the targeted columns
+
+```{r}
+I_EPCI <- I_EPCI %>% select(all_of(columns_to_keep))
+```
+##Doing the operation to get the final data
+
+```{r}
+calculate_inequalities <- function(data){
+  years = c("2016", "2018","2021")
+  for (year in years){
+    data[paste0("I-S8020-",year)] <- data[,paste0("D8",substr(year,3,4))]/data[,paste0("D2",substr(year,3,4))]
+    data[paste0("I-P9010-",year)] <- data[,paste0("D9",substr(year,3,4))]/data[,paste0("D1",substr(year,3,4))]
+    data[paste0("I-P9050-",year)] <- data[,paste0("D9",substr(year,3,4))]/data[,paste0("Q2",substr(year,3,4))]
+    data[paste0("I-P5010-",year)] <- data[,paste0("Q2",substr(year,3,4))]/data[,paste0("D1",substr(year,3,4))]
+    data[paste0("I-Palma-",year)] <- data[,paste0("D9",substr(year,3,4))]/data[,paste0("D4",substr(year,3,4))]
+    
+    names(data)[names(data) == paste0("GI",substr(year,3,4))] <- paste0("I-Gini-",year)
+    names(data)[names(data) == paste0("Q2",substr(year,3,4))] <- paste0("W-Median-",year)
+    
+    list_to_remove <- c(paste0("D8",substr(year,3,4)),paste0("D2",substr(year,3,4)), paste0("D9",substr(year,3,4)), paste0("D1",substr(year,3,4)),paste0("D4",substr(year,3,4)))
+    data <- data[, !(names(data) %in% list_to_remove)]
+  }
+  names(data)[names(data) == "CODGEO"] <- "Region_number"
+  names(data)[names(data) == "LIBGEO"] <- "Region"
+  return(data)
+}
+
+I_EPCI <- calculate_inequalities(I_EPCI)
+```
+
+#GHG Data
+##Importing at communal level
+```{r}
+GHG_16 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\SYNTHESE_resultats_emissions_2016_IGT_d.xlsx", sheet = "PRG")
+POP_16 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\SYNTHESE_resultats_emissions_2016_IGT_d.xlsx", sheet = "Population")
+GHG_18 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\SYNTHESE_resultats_emissions_2018_IGT_d.xlsx", sheet = "PRG")
+POP_18 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\SYNTHESE_resultats_emissions_2018_IGT_d.xlsx", sheet = "Population")
+GHG_21 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\2021\\SYNTHESE_résultats_émissions_2021_IGT-d.xlsx", sheet = "TOT_CO2E")
+POP_21 <- read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\2021\\ensemble.xlsx", sheet = "Communes", skip = 7)
+```
+### conversion table
+```{r}
+COD_COM <-read_excel("C:\\Users\\mathi\\OneDrive\\Documents\\Cours\\ENS2\\SRC_internship\\Data\\France\\Updated_version\\GES\\Intercommunalite-Metropole_au_01-01-2021.xlsx", sheet = "Composition_communale", skip = 5)
+```
+##Formating the 2021 file as the 2016 and 2018 by additionning each commune into one line
+```{r}
+#Keep only the interesting columns
+cols_to_remove <- c("PERIMETRE","LAB_REG","LAB_DEP","EPCI","LIBEPCI","NOM_M","CODE_POSTAL","NOM_CP","CODPOL","export")
+GHG_21 <- GHG_21[,!(names(GHG_21) %in% cols_to_remove)]
+#Sum by communes
+GHG_21 <- GHG_21 %>%
+  group_by(INSEE_COM) %>%
+  summarize(across(everything(), sum, na.rm = TRUE))
+```
+
+##Simplefying the 2016 and 2018 datasets
+```{r}
+cols_to_remove <- c("CODE POL","EPCI","TEST", "...14","0","TRUE")
+GHG_16 <- GHG_16[,!(names(GHG_16) %in% cols_to_remove)]
+
+cols_to_remove <- c("CODE POL","EPCI", "...13","...14","0","TRUE")
+GHG_18 <- GHG_18[,!(names(GHG_18) %in% cols_to_remove)]
+
+```
+
+##Adding the total column to each dataset
+```{r}
+cols_to_sum <- colnames(GHG_16)[2:length(colnames(GHG_16))]
+GHG_16 <- GHG_16 %>%
+  mutate(Total = rowSums(across(all_of(cols_to_sum))))
+
+cols_to_sum <- colnames(GHG_18)[2:length(colnames(GHG_18))]
+GHG_18 <- GHG_18 %>%
+  mutate(Total = rowSums(across(all_of(cols_to_sum))))
+
+cols_to_sum <- colnames(GHG_21)[2:length(colnames(GHG_21))]
+GHG_21 <- GHG_21 %>%
+  mutate(Total = rowSums(across(all_of(cols_to_sum))))
+```
+
+##Select all the communes of a department or a region
+```{r}
+select_EPCI <- function(COD_COM, EPCI_num){
+  corresponding_lines <- COD_COM[COD_COM$EPCI == EPCI_num,]
+  corresponding_com <- corresponding_lines$CODGEO
+  return(corresponding_com)
+}
+select_EPCI(COD_COM, "200054781")
+
+# select_reg <- function(COD_COM, Reg_num){
+#   corresponding_lines <- COD_COM[!(is.na(COD_COM$REG)),]
+#   corresponding_lines <- corresponding_lines[corresponding_lines$REG == Reg_num,]
+#   corresponding_com <- corresponding_lines$COM
+#   return(corresponding_com)
+# }
+# # select_reg(COD_COM, "11")
+```
+##Create the data for EPCIs
+###Get the list of EPCIs
+```{r}
+list_of_EPCIs <- unique(COD_COM$EPCI)
+```
+###Get the pop of a region
+####Format 2021 pop data to have the CODE_COM_2020 columns
+```{r}
+POP_21$CODE_COM_2020 <- paste0(POP_21[["Code département"]], POP_21[["Code commune"]])
+```
+####Change pop column name to be homogenous
+```{r}
+names(POP_16)[names(POP_16) == "Population municipale 2016"] <- "pop"
+names(POP_18)[names(POP_18) == "Population municipale 2018"] <- "pop"
+names(POP_21)[names(POP_21) == "Population municipale"] <- "pop"
+```
+####Add 75056 to 2021 pop
+```{r}
+POP_21 <- POP_21[,colnames(POP_21) %in% c("pop", "CODE_COM_2020")]
+paris_row <- data.frame(
+  pop = 2133111,
+  CODE_COM_2020 = "75056"
+)
+POP_21 <- rbind(POP_21,paris_row)
+remove_arr <- c("75101", "75102", "75103", "75104", "75105", "75106", "75107", "75108", "75109", "75110", "75111","75112", "75113", "75114", "75115", "75116", "75117", "75118", "75119", "75120")
+POP_21 <- POP_21[!(POP_21$CODE_COM_2020 %in% remove_arr),]
+```
+
+####create a function that return the pop of an EPCI
+```{r}
+pop_by_EPCI <- function(data, EPCI_number, COD_COM){
+  communes <- select_EPCI(COD_COM, EPCI_number)
+  reduced_data <- data[(data$CODE_COM_2020 %in% communes),]
+  full_pop <- sum(reduced_data$pop)
+  return(full_pop)
+}
+
+pop_by_EPCI(POP_16,"200054781",COD_COM)
+```
+###Get the GHG of regions
+####Get same formating for 2021
+```{r}
+names(GHG_21)[names(GHG_21) == "INSEE_COM"] <- "CODE_COM_2020"
+```
+
+```{r}
+divide_EPCI_by_pop <- function(data, COD_COM, pop_data){
+  for (EPCI in data$EPCI){
+    EPCI_pop <- pop_by_EPCI(pop_data, EPCI, COD_COM)
+    data[data$EPCI == EPCI,(2:ncol(data))] <- data[data$EPCI == EPCI,(2:ncol(data))] / EPCI_pop
+  }
+  return(data)
+}###it should return a dataset where every EPCI line is divided by the number of people in the EPCI
+
+GHG_by_EPCI <- function(data, COD_COM, pop_data){
+  corresponding_EPCI <- c()
+  cpt <- 0
+  for (commune in data$CODE_COM_2020){
+    EPCI <- COD_COM[COD_COM$CODGEO == commune,]$EPCI
+    corresponding_EPCI <- c(corresponding_EPCI,EPCI)
+    if (length(EPCI) == 0){
+      data <- data[!(data$CODE_COM_2020==commune),]
+      cpt <- cpt + 1
+    }
+  }
+  print(paste(as.character(cpt-1), "communes removed"))
+  data$EPCI <- corresponding_EPCI
+  data$CODE_COM_2020 <- NULL
+  data <- data %>%
+    group_by(EPCI) %>%
+    summarize(across(everything(), sum, na.rm = TRUE))
+  data <- subset(data, !(data$EPCI == "ZZZZZZZZZ"))
+  data <- divide_EPCI_by_pop(data, COD_COM, pop_data)
+  return(data)
+}
+
+GHG_EPCI_16 <- GHG_by_EPCI(data = GHG_16,COD_COM = COD_COM, pop_data = POP_16)
+GHG_EPCI_18 <- GHG_by_EPCI(data = GHG_18,COD_COM = COD_COM, pop_data = POP_18)
+GHG_EPCI_21 <- GHG_by_EPCI(data = GHG_21,COD_COM = COD_COM, pop_data = POP_21)
+```
+####Get only same EPCIs (final)
+```{r}
+COD_EPCI_16 <- GHG_EPCI_16$EPCI
+COD_EPCI_18 <- GHG_EPCI_18$EPCI
+COD_EPCI_21 <- GHG_EPCI_21$EPCI
+
+CODGEO_EPCI_ALL <- Reduce(intersect, list(COD_EPCI_16,COD_EPCI_18,COD_EPCI_21,CODGEO_EPCI_ALL))
+print(length(CODGEO_EPCI_ALL))
+
+GHG_EPCI_16  <- GHG_EPCI_16[(GHG_EPCI_16$EPCI %in% CODGEO_EPCI_ALL),]
+GHG_EPCI_18  <- GHG_EPCI_18[(GHG_EPCI_18$EPCI %in% CODGEO_EPCI_ALL),]
+GHG_EPCI_21  <- GHG_EPCI_21[(GHG_EPCI_21$EPCI %in% CODGEO_EPCI_ALL),]
+
+I_EPCI <- I_EPCI[(I_EPCI$Region_number %in% CODGEO_EPCI_ALL),]
+```
+## Start recombining dataframes
+###Colnames focus
+####Creating colnames
+```{r}
+years <- c("2016", "2018","2021")
+sectors <- c("Energy", "Industry", "Residential", "Tertiary", "Waste", "Road", "Other_Transp.", "Int._Transp.", "Agriculture", "Total")
+list_of_labels <- list()
+for (year in years){
+  year_labels <- c()
+  for (sector in sectors){
+    year_labels <- c(year_labels, paste0("GHG-",sector,"-",year))
+  }
+  list_of_labels <- append(list_of_labels, list(year_labels))
+}
+```
+
+####Changing colnames
+```{r}
+colnames(GHG_EPCI_16) <- c("Region_number", list_of_labels[[1]])
+colnames(GHG_EPCI_18) <- c("Region_number", list_of_labels[[2]])
+colnames(GHG_EPCI_21) <- c("Region_number", list_of_labels[[3]])
+```
+
+###Combinig GHG dataframes
+```{r}
+GHG_EPCI <- merge(GHG_EPCI_16,GHG_EPCI_18, by = "Region_number")
+GHG_EPCI <- merge(GHG_EPCI,GHG_EPCI_21, by = "Region_number")
+```
+###Combining final dataframes
+```{r}
+EPCI <- merge(I_EPCI,GHG_EPCI)
+```
+
+```{r}
+write.csv(EPCI, "trilemma_16_18_21_France_EPCI.csv", row.names = FALSE)
+
+```
+
+
